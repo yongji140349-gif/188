@@ -1,206 +1,233 @@
-<!DOCTYPE html>
-<html lang="th">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Calendar Helper Bot</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500&display=swap" rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Kanit', sans-serif;
-            background-color: #f0f2f5;
-        }
-        .chat-container {
-            height: calc(100vh - 160px);
-        }
-        .message-appear {
-            animation: fadeIn 0.3s ease-in-out;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .hide-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-        .hide-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
-    </style>
-</head>
-<body class="bg-gray-100 h-screen flex flex-col">
+import React, { useState, useEffect, useRef } from 'react';
+import { Calendar, Clock, User, MessageSquare, Send, CheckCircle, CalendarDays, ChevronRight } from 'lucide-react';
 
-    <!-- Header -->
-    <header class="bg-blue-600 text-white p-4 shadow-md flex items-center gap-3">
-        <div class="bg-white p-2 rounded-full">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
+/**
+ * แอปพลิเคชันแชทบอทสำหรับการนัดหมายเบื้องต้น
+ * รองรับการทำงานแบบ Step-by-step: หัวข้อ -> วันที่ -> เวลา -> ชื่อ
+ */
+const App = () => {
+  const [messages, setMessages] = useState([
+    { id: 1, type: 'bot', text: 'สวัสดีครับ! ผมคือบอทช่วยนัดหมาย ยินดีต้อนรับครับ คุณต้องการนัดหมายเรื่องอะไรครับ?' }
+  ]);
+  const [inputValue, setInputValue] = useState('');
+  const [step, setStep] = useState('TOPIC'); // ขั้นตอน: TOPIC, DATE, TIME, NAME, CONFIRM
+  const [bookingData, setBookingData] = useState({
+    topic: '',
+    date: '',
+    time: '',
+    name: ''
+  });
+  
+  const messagesEndRef = useRef(null);
+
+  // ฟังก์ชันเลื่อนหน้าจอลงไปที่ข้อความล่าสุด
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  // ฟังก์ชันเพิ่มข้อความในแชท
+  const addMessage = (text, type) => {
+    setMessages(prev => [...prev, { id: Date.now(), type, text }]);
+  };
+
+  // ฟังก์ชันส่งข้อความจาก Input
+  const handleSend = (e) => {
+    e.preventDefault();
+    if (!inputValue.trim()) return;
+
+    const userText = inputValue.trim();
+    addMessage(userText, 'user');
+    setInputValue('');
+
+    processStep(userText);
+  };
+
+  // ตรรกะการจัดการขั้นตอนการตอบโต้
+  const processStep = (text) => {
+    setTimeout(() => {
+      switch (step) {
+        case 'TOPIC':
+          setBookingData(prev => ({ ...prev, topic: text }));
+          addMessage(`รับทราบครับ สำหรับเรื่อง "${text}" คุณสะดวกนัดวันไหนดีครับ? (ตัวอย่าง: พรุ่งนี้ หรือ 25 ก.พ.)`, 'bot');
+          setStep('DATE');
+          break;
+        case 'DATE':
+          setBookingData(prev => ({ ...prev, date: text }));
+          addMessage(`วันที่ ${text} นะครับ แล้วสะดวกช่วงเวลาไหนครับ?`, 'bot');
+          setStep('TIME');
+          break;
+        case 'TIME':
+          setBookingData(prev => ({ ...prev, time: text }));
+          addMessage('บันทึกช่วงเวลาเรียบร้อยครับ สุดท้ายนี้ขอทราบชื่อของคุณเพื่อลงทะเบียนการนัดหมายครับ', 'bot');
+          setStep('NAME');
+          break;
+        case 'NAME':
+          setBookingData(prev => ({ ...prev, name: text }));
+          addMessage(`ขอบคุณครับคุณ ${text} ตรวจสอบข้อมูลการนัดหมายด้านล่างนี้ได้เลยครับ:`, 'bot');
+          setStep('CONFIRM');
+          break;
+        default:
+          addMessage('หากต้องการแก้ไขข้อมูล กรุณากดเริ่มนัดหมายใหม่ครับ', 'bot');
+      }
+    }, 600);
+  };
+
+  // ฟังก์ชันสำหรับเลือกตัวเลือกด่วน
+  const handleQuickSelect = (value) => {
+    addMessage(value, 'user');
+    processStep(value);
+  };
+
+  return (
+    <div className="flex flex-col h-screen bg-slate-50 text-slate-900 font-sans">
+      {/* ส่วนหัวของแอป (Header) */}
+      <header className="bg-indigo-600 p-4 shadow-lg flex items-center gap-3 shrink-0">
+        <div className="bg-white/20 p-2 rounded-full">
+          <CalendarDays className="text-white w-6 h-6" />
         </div>
         <div>
-            <h1 class="font-bold text-lg">Calendar Assistant</h1>
-            <p class="text-xs text-blue-100">ออนไลน์ - พร้อมช่วยคุณนัดหมาย</p>
+          <h1 className="text-white font-bold text-lg leading-none">Appointment Assistant</h1>
+          <p className="text-indigo-100 text-xs flex items-center gap-1 mt-1">
+            <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span> ระบบพร้อมใช้งาน
+          </p>
         </div>
-    </header>
+      </header>
 
-    <!-- Chat Body -->
-    <main id="chat-window" class="flex-1 overflow-y-auto p-4 space-y-4 chat-container hide-scrollbar">
-        <!-- Bot Message -->
-        <div class="flex justify-start message-appear">
-            <div class="bg-white p-3 rounded-lg shadow-sm max-w-[80%] border-l-4 border-blue-500">
-                <p class="text-gray-800 text-sm">สวัสดีครับ! ผมคือผู้ช่วยนัดหมายของคุณ วันนี้อยากจะสร้างนัดหมายเรื่องอะไรดีครับ?</p>
+      {/* พื้นที่แสดงข้อความแชท (Chat Area) */}
+      <main className="flex-1 overflow-y-auto p-4 space-y-4">
+        {messages.map((msg) => (
+          <div key={msg.id} className={`flex ${msg.type === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in duration-300`}>
+            {msg.type === 'bot' && (
+              <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center mr-2 mt-1 shrink-0">
+                <MessageSquare size={16} className="text-indigo-600" />
+              </div>
+            )}
+            <div className={`max-w-[80%] rounded-2xl p-3 shadow-sm ${
+              msg.type === 'user' 
+                ? 'bg-indigo-500 text-white rounded-tr-none' 
+                : 'bg-white text-slate-800 border border-slate-100 rounded-tl-none'
+            }`}>
+              <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</p>
             </div>
-        </div>
+          </div>
+        ))}
 
-        <!-- Quick Options -->
-        <div id="quick-options" class="flex flex-wrap gap-2 mt-2">
-            <button onclick="handleQuickSelect('ประชุมงาน')" class="bg-blue-100 text-blue-700 px-3 py-1.5 rounded-full text-sm hover:bg-blue-200 transition">📅 ประชุมงาน</button>
-            <button onclick="handleQuickSelect('ไปพบแพทย์')" class="bg-blue-100 text-blue-700 px-3 py-1.5 rounded-full text-sm hover:bg-blue-200 transition">🏥 ไปพบแพทย์</button>
-            <button onclick="handleQuickSelect('ออกกำลังกาย')" class="bg-blue-100 text-blue-700 px-3 py-1.5 rounded-full text-sm hover:bg-blue-200 transition">💪 ออกกำลังกาย</button>
-            <button onclick="handleQuickSelect('นัดทานข้าว')" class="bg-blue-100 text-blue-700 px-3 py-1.5 rounded-full text-sm hover:bg-blue-200 transition">🍴 นัดทานข้าว</button>
-        </div>
-    </main>
+        {/* ตัวเลือกด่วนสำหรับหัวข้อ (Suggested Topics) */}
+        {step === 'TOPIC' && messages.length === 1 && (
+          <div className="flex flex-wrap gap-2 ml-10">
+            {['ปรึกษาทั่วไป', 'ติดตามผล', 'จองบริการ'].map(topic => (
+              <button 
+                key={topic} 
+                onClick={() => handleQuickSelect(topic)}
+                className="bg-indigo-50 border border-indigo-200 text-indigo-700 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-indigo-100 transition-colors"
+              >
+                {topic}
+              </button>
+            ))}
+          </div>
+        )}
 
-    <!-- Input Area -->
-    <footer class="bg-white p-4 border-t border-gray-200 shadow-inner">
-        <form id="chat-form" class="flex gap-2">
-            <input type="text" id="user-input" placeholder="พิมพ์ข้อความที่นี่..." 
-                class="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-sm">
-            <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition flex items-center justify-center">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
-                </svg>
+        {/* ส่วนแสดงสรุปการจองเมื่อเสร็จสิ้นขั้นตอน */}
+        {step === 'CONFIRM' && bookingData.name && (
+          <div className="bg-white border-2 border-dashed border-indigo-200 rounded-xl p-5 mt-4 space-y-4 animate-in zoom-in-95 duration-500 max-w-[90%] mx-auto">
+            <div className="flex items-center justify-center gap-2 text-indigo-600 border-b border-indigo-50 pb-3">
+              <CheckCircle size={24} className="animate-bounce" /> 
+              <h3 className="font-bold text-base">ยืนยันข้อมูลเรียบร้อย</h3>
+            </div>
+            
+            <div className="space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="p-2 bg-slate-50 rounded-lg"><MessageSquare size={16} className="text-slate-400" /></div>
+                <div>
+                  <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold">หัวข้อ</p>
+                  <p className="text-sm font-medium">{bookingData.topic}</p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-3">
+                <div className="p-2 bg-slate-50 rounded-lg"><Calendar size={16} className="text-slate-400" /></div>
+                <div>
+                  <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold">วันที่</p>
+                  <p className="text-sm font-medium">{bookingData.date}</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="p-2 bg-slate-50 rounded-lg"><Clock size={16} className="text-slate-400" /></div>
+                <div>
+                  <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold">เวลา</p>
+                  <p className="text-sm font-medium">{bookingData.time}</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="p-2 bg-slate-50 rounded-lg"><User size={16} className="text-slate-400" /></div>
+                <div>
+                  <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold">ชื่อผู้ติดต่อ</p>
+                  <p className="text-sm font-medium">{bookingData.name}</p>
+                </div>
+              </div>
+            </div>
+
+            <button 
+              onClick={() => window.location.reload()}
+              className="w-full mt-2 py-3 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 active:scale-[0.98]"
+            >
+              เริ่มทำนัดใหม่
             </button>
+          </div>
+        )}
+
+        <div ref={messagesEndRef} />
+      </main>
+
+      {/* ตัวเลือกด่วนสำหรับเวลา (Suggested Options) */}
+      {step === 'TIME' && (
+        <div className="px-4 py-3 flex gap-2 overflow-x-auto no-scrollbar bg-white border-t border-slate-100">
+          {['09:00', '10:30', '13:30', '15:00', '16:30'].map(t => (
+            <button 
+              key={t} 
+              onClick={() => handleQuickSelect(`${t} น.`)} 
+              className="whitespace-nowrap bg-indigo-50 border border-indigo-100 text-indigo-700 px-4 py-2 rounded-xl text-sm font-semibold hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all flex items-center gap-1 shadow-sm"
+            >
+              <Clock size={14} /> {t}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* พื้นที่กรอกข้อความ (Input Area) */}
+      <footer className="p-4 bg-white border-t border-slate-200 shrink-0">
+        <form onSubmit={handleSend} className="flex gap-2 max-w-4xl mx-auto">
+          <input
+            type="text"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            placeholder={step === 'CONFIRM' ? "บันทึกเรียบร้อย..." : "พิมพ์ข้อความตอบกลับ..."}
+            disabled={step === 'CONFIRM'}
+            className="flex-1 bg-slate-100 border-none rounded-2xl px-5 py-3.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition disabled:opacity-50 disabled:cursor-not-allowed"
+          />
+          <button
+            type="submit"
+            disabled={step === 'CONFIRM' || !inputValue.trim()}
+            className="bg-indigo-600 text-white p-3.5 rounded-2xl hover:bg-indigo-700 transition-all disabled:bg-slate-300 shadow-md shadow-indigo-100 disabled:shadow-none flex items-center justify-center active:scale-90"
+          >
+            <Send size={20} />
+          </button>
         </form>
-    </footer>
+      </footer>
 
-    <script>
-        const chatWindow = document.getElementById('chat-window');
-        const chatForm = document.getElementById('chat-form');
-        const userInput = document.getElementById('user-input');
-        const quickOptions = document.getElementById('quick-options');
+      {/* CSS Utility สำหรับซ่อน Scrollbar */}
+      <style>{`
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      `}</style>
+    </div>
+  );
+};
 
-        let appointmentData = {
-            title: '',
-            date: '',
-            time: ''
-        };
-
-        let currentStep = 'ASK_TITLE';
-
-        // Helper to append message
-        function appendMessage(text, isUser = false, isHtml = false) {
-            const wrapper = document.createElement('div');
-            wrapper.className = `flex ${isUser ? 'justify-end' : 'justify-start'} message-appear`;
-            
-            const content = document.createElement('div');
-            content.className = `${isUser ? 'bg-blue-600 text-white' : 'bg-white text-gray-800 border-l-4 border-blue-500'} p-3 rounded-lg shadow-sm max-w-[80%] text-sm`;
-            
-            if (isHtml) {
-                content.innerHTML = text;
-            } else {
-                content.innerText = text;
-            }
-
-            wrapper.appendChild(content);
-            chatWindow.appendChild(wrapper);
-            chatWindow.scrollTop = chatWindow.scrollHeight;
-        }
-
-        // Handle Quick Selection
-        window.handleQuickSelect = (text) => {
-            handleUserMessage(text);
-        };
-
-        // Main Logic
-        async function processInput(input) {
-            switch(currentStep) {
-                case 'ASK_TITLE':
-                    appointmentData.title = input;
-                    appendMessage("รับทราบครับ! คุณต้องการนัดวันที่เท่าไหร่ครับ? (ตัวอย่าง: 2024-12-25)");
-                    currentStep = 'ASK_DATE';
-                    // Show Date Input Hint
-                    userInput.type = 'date';
-                    break;
-                
-                case 'ASK_DATE':
-                    appointmentData.date = input;
-                    appendMessage("โอเคครับ แล้วเวลาไหนดีครับ?");
-                    currentStep = 'ASK_TIME';
-                    userInput.type = 'time';
-                    break;
-                
-                case 'ASK_TIME':
-                    appointmentData.time = input;
-                    currentStep = 'DONE';
-                    userInput.type = 'text';
-                    showSummary();
-                    break;
-                
-                default:
-                    appendMessage("นัดหมายเสร็จสมบูรณ์แล้ว หากต้องการเริ่มใหม่ เพียงแค่พิมพ์ 'เริ่มใหม่' นะครับ");
-                    if (input.includes('เริ่มใหม่')) {
-                        resetChat();
-                    }
-                    break;
-            }
-        }
-
-        function showSummary() {
-            const googleCalUrl = createGoogleCalendarUrl();
-            const summaryHtml = `
-                <strong>สรุปการนัดหมาย:</strong><br>
-                📌 เรื่อง: ${appointmentData.title}<br>
-                📅 วันที่: ${appointmentData.date}<br>
-                ⏰ เวลา: ${appointmentData.time}<br><br>
-                <a href="${googleCalUrl}" target="_blank" class="block bg-green-500 text-white text-center py-2 px-4 rounded mt-2 hover:bg-green-600 transition">
-                    ยืนยันและเพิ่มใน Google Calendar
-                </a>
-                <button onclick="resetChat()" class="block w-full text-blue-600 text-center py-2 mt-1 underline text-xs">เริ่มนัดหมายใหม่</button>
-            `;
-            appendMessage(summaryHtml, false, true);
-        }
-
-        function createGoogleCalendarUrl() {
-            const startDateTime = appointmentData.date.replace(/-/g, '') + 'T' + appointmentData.time.replace(/:/g, '') + '00';
-            // Default 1 hour duration
-            const endHour = (parseInt(appointmentData.time.split(':')[0]) + 1).toString().padStart(2, '0');
-            const endDateTime = appointmentData.date.replace(/-/g, '') + 'T' + endHour + appointmentData.time.split(':')[1].replace(/:/g, '') + '00';
-            
-            const baseUrl = 'https://www.google.com/calendar/render?action=TEMPLATE';
-            return `${baseUrl}&text=${encodeURIComponent(appointmentData.title)}&dates=${startDateTime}/${endDateTime}&details=Created+by+Calendar+Bot`;
-        }
-
-        function handleUserMessage(text) {
-            if (!text.trim()) return;
-            appendMessage(text, true);
-            quickOptions.style.display = 'none';
-            
-            // Add slight delay for "bot thinking" feel
-            setTimeout(() => {
-                processInput(text);
-            }, 600);
-        }
-
-        function resetChat() {
-            appointmentData = { title: '', date: '', time: '' };
-            currentStep = 'ASK_TITLE';
-            userInput.type = 'text';
-            chatWindow.innerHTML = '';
-            appendMessage("สวัสดีครับ! ผมพร้อมช่วยนัดหมายใหม่แล้ว วันนี้อยากจะนัดเรื่องอะไรครับ?");
-            quickOptions.style.display = 'flex';
-        }
-
-        // Form Event Listener
-        chatForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const text = userInput.value;
-            handleUserMessage(text);
-            userInput.value = '';
-        });
-
-    </script>
-</body>
-</html>
+export default App;
